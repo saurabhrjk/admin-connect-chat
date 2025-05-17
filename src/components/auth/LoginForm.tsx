@@ -62,9 +62,11 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             Sign up
           </Button>
         </p>
-        <p className="text-xs text-muted-foreground mt-4">
-          Demo credentials: user@example.com / password
-        </p>
+        <div className="text-xs text-muted-foreground mt-4">
+          <p>Demo credentials:</p>
+          <p>User: user@example.com / password</p>
+          <p>Admin: admin@example.com / password</p>
+        </div>
       </div>
     </div>
   );

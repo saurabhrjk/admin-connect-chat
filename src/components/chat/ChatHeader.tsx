@@ -2,8 +2,6 @@
 import React from 'react';
 import { useChat } from '@/hooks/useChat';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreVertical, Phone, Video } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ChatHeader() {
@@ -42,22 +40,6 @@ export default function ChatHeader() {
             )}
           </div>
         </div>
-      </div>
-
-      <div className="flex space-x-1">
-        {!isMobile && (
-          <>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Phone className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Video className="h-5 w-5" />
-            </Button>
-          </>
-        )}
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <MoreVertical className="h-5 w-5" />
-        </Button>
       </div>
     </div>
   );

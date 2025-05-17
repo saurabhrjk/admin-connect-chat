@@ -72,14 +72,15 @@ const MOCK_CONTACTS: Contact[] = [
   }
 ];
 
+// Initialize messages with separate conversations for each user with the admin
 const MOCK_MESSAGES: Record<string, Message[]> = {
-  'admin-1': [
+  'user-1': [
     {
       id: 'msg-1',
       senderId: 'admin-1',
       recipientId: 'user-1',
       content: 'Hello! How can I help you today?',
-      timestamp: new Date(Date.now() - 1000 * 60 * 10), // 10 minutes ago
+      timestamp: new Date(Date.now() - 1000 * 60 * 10),
       isRead: true,
       type: 'text'
     },
@@ -88,27 +89,27 @@ const MOCK_MESSAGES: Record<string, Message[]> = {
       senderId: 'user-1',
       recipientId: 'admin-1',
       content: 'I have a question about the service.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+      timestamp: new Date(Date.now() - 1000 * 60 * 5),
       isRead: false,
       type: 'text'
     }
   ],
-  'user-1': [
+  'user-2': [
     {
       id: 'msg-3',
-      senderId: 'user-1',
+      senderId: 'user-2',
       recipientId: 'admin-1',
       content: 'Hello there!',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+      timestamp: new Date(Date.now() - 1000 * 60 * 30),
       isRead: true,
       type: 'text'
     },
     {
       id: 'msg-4',
       senderId: 'admin-1',
-      recipientId: 'user-1',
-      content: 'Hi John, what can I do for you today?',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+      recipientId: 'user-2',
+      content: 'Hi Alice, what can I do for you today?',
+      timestamp: new Date(Date.now() - 1000 * 60 * 5),
       isRead: false,
       type: 'text'
     }
@@ -179,14 +180,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       fileUrl
     };
     
+    // Get the correct conversation ID based on who's talking to whom
+    const conversationId = user.isAdmin ? selectedContact.id : user.id;
+    
     // Add message to conversation
     setMessages(prev => {
-      const contactId = selectedContact.id;
-      const updatedMessages = { 
+      return { 
         ...prev,
-        [contactId]: [...(prev[contactId] || []), newMessage]
+        [conversationId]: [...(prev[conversationId] || []), newMessage]
       };
-      return updatedMessages;
     });
     
     // Update contact's last message
@@ -226,10 +228,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Then after a delay, send the message and remove typing indicator
         setTimeout(() => {
           setMessages(prev => {
-            const contactId = selectedContact.id;
+            // Store in user's conversation
             return { 
               ...prev,
-              [contactId]: [...(prev[contactId] || []), responseMessage]
+              [user.id]: [...(prev[user.id] || []), responseMessage]
             };
           });
           

@@ -3,10 +3,9 @@ import React, { useState, useRef } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Paperclip, Smile, Send } from 'lucide-react';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
+import { Smile, Send } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast } from 'sonner';
 
 export default function ChatInput() {
   const [message, setMessage] = useState('');
@@ -60,20 +59,19 @@ export default function ChatInput() {
           />
         </div>
         <div className="flex space-x-2">
-          <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
+          <Popover>
             <PopoverTrigger asChild>
               <Button size="icon" variant="ghost">
                 <Smile className="h-5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full p-0 border-none" side="top" align="end">
-              <Picker data={data} onEmojiSelect={handleEmojiSelect} />
+              {/* Emoji picker content */}
+              <div className="p-4 text-center">
+                <p className="text-sm text-muted-foreground">Emoji selector</p>
+              </div>
             </PopoverContent>
           </Popover>
-          
-          <Button size="icon" variant="ghost">
-            <Paperclip className="h-5 w-5" />
-          </Button>
           
           <Button 
             onClick={handleSendMessage} 
