@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Chat theme colors
+				chat: {
+					primary: '#9b87f5',
+					secondary: '#7E69AB',
+					light: '#F1F0FB',
+					dark: '#1A1F2C',
+					accent: '#33C3F0',
+					online: '#22C55E',
+					offline: '#8E9196',
+					seen: '#1EAEDB',
+					unseen: '#D6BCFA',
 				}
 			},
 			borderRadius: {
@@ -84,11 +97,28 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-dot': {
+					'0%': { transform: 'scale(0.95)', opacity: '1' },
+					'50%': { transform: 'scale(1)', opacity: '0.7' },
+					'100%': { transform: 'scale(0.95)', opacity: '1' },
+				},
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' },
+				},
+				'typing': {
+					'0%': { width: '0' },
+					'50%': { width: '8px' },
+					'100%': { width: '0' },
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-dot': 'pulse-dot 1.5s ease-in-out infinite',
+				'fade-in': 'fade-in 0.3s ease-in-out',
+				'typing': 'typing 1.5s infinite'
 			}
 		}
 	},

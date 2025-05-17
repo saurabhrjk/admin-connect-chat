@@ -1,13 +1,34 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React from 'react';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { ChatProvider } from '@/hooks/useChat';
+import AuthScreen from '@/components/auth/AuthScreen';
+import ChatScreen from '@/components/chat/ChatScreen';
+
+const ConnectWithMe = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-chat-primary">
+          <div className="h-8 w-8 rounded-full bg-chat-primary animate-pulse-dot"></div>
+          <p className="mt-2 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <ChatScreen /> : <AuthScreen />;
+};
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <AuthProvider>
+      <ChatProvider>
+        <ConnectWithMe />
+      </ChatProvider>
+    </AuthProvider>
   );
 };
 
