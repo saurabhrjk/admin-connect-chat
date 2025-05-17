@@ -56,7 +56,11 @@ export default function MessageBubble({ message, isUser }: MessageBubbleProps) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`${isUser ? 'message-bubble message-bubble-user' : 'message-bubble message-bubble-other'}`}>
+      <div className={`max-w-[75%] p-3 rounded-lg ${
+        isUser 
+          ? 'bg-chat-primary text-white rounded-br-none' 
+          : 'bg-gray-100 text-gray-800 rounded-bl-none'
+      }`}>
         {renderMessageContent()}
         <div className={`flex items-center justify-end mt-1 space-x-1 text-xs ${isUser ? 'text-white text-opacity-70' : 'text-gray-500'}`}>
           <span>{formattedDate}</span>
