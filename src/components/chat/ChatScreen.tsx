@@ -24,7 +24,7 @@ export default function ChatScreen() {
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-[280px]" showCloseButton={false}>
+          <SheetContent side="left" className="p-0 w-[280px]">
             <Sidebar />
           </SheetContent>
         </Sheet>
