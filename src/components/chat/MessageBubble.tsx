@@ -22,7 +22,7 @@ export default function MessageBubble({ message, isUser }: MessageBubbleProps) {
               alt="Image message"
               className="max-w-full rounded-lg max-h-[200px] object-contain"
             />
-            <p className="mt-1">{message.content}</p>
+            {message.content && <p className="mt-1">{message.content}</p>}
           </div>
         );
       case 'file':
@@ -30,7 +30,7 @@ export default function MessageBubble({ message, isUser }: MessageBubbleProps) {
           <div className="flex items-center p-2 bg-white bg-opacity-20 rounded-md">
             <FileText className="h-5 w-5 mr-2" />
             <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              {message.content}
+              {message.content || "Attachment"}
             </a>
           </div>
         );
@@ -42,7 +42,7 @@ export default function MessageBubble({ message, isUser }: MessageBubbleProps) {
               controls
               className="max-w-full rounded-lg max-h-[200px]"
             />
-            <p className="mt-1">{message.content}</p>
+            {message.content && <p className="mt-1">{message.content}</p>}
           </div>
         );
       default:

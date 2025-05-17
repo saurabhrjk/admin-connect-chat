@@ -59,16 +59,6 @@ const MOCK_CONTACTS: Contact[] = [
     unreadCount: 0,
     isOnline: true,
     isTyping: false
-  },
-  {
-    id: 'user-2',
-    name: 'Alice Smith',
-    avatar: 'https://i.pravatar.cc/150?u=alice',
-    lastMessage: 'Thanks for your help!',
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-    unreadCount: 2,
-    isOnline: false,
-    isTyping: false
   }
 ];
 
@@ -89,26 +79,6 @@ const MOCK_MESSAGES: Record<string, Message[]> = {
       senderId: 'user-1',
       recipientId: 'admin-1',
       content: 'I have a question about the service.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5),
-      isRead: false,
-      type: 'text'
-    }
-  ],
-  'user-2': [
-    {
-      id: 'msg-3',
-      senderId: 'user-2',
-      recipientId: 'admin-1',
-      content: 'Hello there!',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30),
-      isRead: true,
-      type: 'text'
-    },
-    {
-      id: 'msg-4',
-      senderId: 'admin-1',
-      recipientId: 'user-2',
-      content: 'Hi Alice, what can I do for you today?',
       timestamp: new Date(Date.now() - 1000 * 60 * 5),
       isRead: false,
       type: 'text'
@@ -159,18 +129,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       );
       
       // Mark messages as read
-      if (messages[contactId] || messages[user?.id || '']) {
-        // Get the conversation based on whether the user is admin or regular user
-        const conversationId = user?.isAdmin ? contactId : user?.id || '';
-        const conversation = messages[conversationId] || [];
-        
-        const unreadMessageIds = conversation
-          .filter(m => !m.isRead && m.senderId === contactId)
-          .map(m => m.id);
-        
-        if (unreadMessageIds.length > 0) {
-          markAsRead(unreadMessageIds);
-        }
+      if (!user) return;
+      
+      // Get the conversation based on whether the user is admin or regular user
+      const conversationId = user.isAdmin ? contactId : user.id;
+      const conversation = messages[conversationId] || [];
+      
+      const unreadMessageIds = conversation
+        .filter(m => !m.isRead && m.senderId === contactId)
+        .map(m => m.id);
+      
+      if (unreadMessageIds.length > 0) {
+        markAsRead(unreadMessageIds);
       }
     }
   };
@@ -181,13 +151,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     type: 'text' | 'file' | 'image' | 'video' = 'text', 
     fileUrl?: string
   ) => {
-    if (!user || !selectedContact || !content.trim()) return;
+    if (!user || !selectedContact || (!content.trim() && !fileUrl)) return;
     
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       senderId: user.id,
       recipientId: selectedContact.id,
-      content,
+      content: content.trim() || (type !== 'text' ? 'Attachment' : ''),
       timestamp: new Date(),
       isRead: false,
       type,
@@ -209,82 +179,34 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
     
     // Update contact's last message
+    let lastMessageText = content;
+    if (!content && type !== 'text') {
+      switch (type) {
+        case 'image': 
+          lastMessageText = 'Image sent';
+          break;
+        case 'file':
+          lastMessageText = 'File sent';
+          break;
+        case 'video':
+          lastMessageText = 'Video sent';
+          break;
+      }
+    }
+    
     setContacts(prevContacts => 
       prevContacts.map(c => 
         c.id === selectedContact.id 
           ? { 
               ...c, 
-              lastMessage: content.length > 30 ? content.substring(0, 30) + '...' : content,
+              lastMessage: lastMessageText.length > 30 ? lastMessageText.substring(0, 30) + '...' : lastMessageText,
               lastMessageTime: new Date()
             } 
           : c
       )
     );
     
-    // Simulate receiving a response after a delay
-    setTimeout(() => {
-      // Only auto-respond to non-admin users
-      if (!user.isAdmin) {
-        const responseMessage: Message = {
-          id: `msg-${Date.now() + 1}`,
-          senderId: selectedContact.id,
-          recipientId: user.id,
-          content: getAutoResponse(content),
-          timestamp: new Date(),
-          isRead: false,
-          type: 'text'
-        };
-        
-        // First show typing indicator
-        setContacts(prevContacts => 
-          prevContacts.map(c => 
-            c.id === selectedContact.id ? { ...c, isTyping: true } : c
-          )
-        );
-        
-        // Then after a delay, send the message and remove typing indicator
-        setTimeout(() => {
-          setMessages(prev => {
-            const updatedMessages = { ...prev };
-            if (!updatedMessages[user.id]) {
-              updatedMessages[user.id] = [];
-            }
-            
-            updatedMessages[user.id] = [...updatedMessages[user.id], responseMessage];
-            return updatedMessages;
-          });
-          
-          // Update contact with new last message and increment unread count
-          setContacts(prevContacts => 
-            prevContacts.map(c => 
-              c.id === selectedContact.id 
-                ? { 
-                    ...c, 
-                    lastMessage: responseMessage.content.length > 30 
-                      ? responseMessage.content.substring(0, 30) + '...' 
-                      : responseMessage.content,
-                    lastMessageTime: new Date(),
-                    unreadCount: c.unreadCount + 1,
-                    isTyping: false
-                  } 
-                : c
-            )
-          );
-        }, 1500 + Math.random() * 1000);
-      }
-    }, 1000);
-  };
-
-  // Helper function to generate auto responses
-  const getAutoResponse = (message: string): string => {
-    const responses = [
-      "Thanks for your message! I'll get back to you shortly.",
-      "Got it! Let me check on that for you.",
-      "Thanks for reaching out. Is there anything else you'd like to know?",
-      "I'll look into this and respond as soon as possible.",
-      "Thank you for your inquiry. I'm processing your request."
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+    // No auto-responses anymore
   };
 
   // Set typing indicator for a contact

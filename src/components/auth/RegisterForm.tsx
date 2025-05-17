@@ -1,9 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Camera } from 'lucide-react';
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -15,8 +17,23 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { register, isLoading } = useAuth();
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setAvatar(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +44,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
       return;
     }
     
-    const success = await register(name, email, password);
+    const success = await register(name, email, password, avatar);
     if (success) {
       // Registration successful - user is automatically logged in by useAuth hook
     }
@@ -41,6 +58,33 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <Avatar className="h-24 w-24 border-2 border-chat-primary cursor-pointer">
+              {avatar ? (
+                <AvatarImage src={avatar} alt="Profile" />
+              ) : (
+                <AvatarFallback className="bg-muted text-muted-foreground text-xl">
+                  {name ? name.charAt(0).toUpperCase() : 'U'}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div 
+              className="absolute bottom-0 right-0 bg-chat-primary rounded-full p-2 cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Camera className="h-4 w-4 text-white" />
+            </div>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleImageUpload} 
+              className="hidden" 
+              accept="image/*"
+            />
+          </div>
+        </div>
+        
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
           <Input

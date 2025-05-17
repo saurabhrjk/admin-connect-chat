@@ -13,7 +13,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, avatar?: string | null) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Mock register function
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+  const register = async (name: string, email: string, password: string, avatar?: string | null): Promise<boolean> => {
     try {
       setIsLoading(true);
       
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name,
         email,
         isAdmin: false,
-        avatar: `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`
+        avatar: avatar || `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`
       };
       
       // In a real app, this would send the user data to a server
