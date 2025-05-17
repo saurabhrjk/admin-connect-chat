@@ -3,16 +3,14 @@ import React, { useState, useRef } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Paperclip, Smile, Send } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Paperclip, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
+import { Input } from '@/components/ui/input';
 
 export default function ChatInput() {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { sendMessage, setTyping, selectedContact } = useChat();
 
   const handleSendMessage = () => {
@@ -41,14 +39,37 @@ export default function ChatInput() {
     }
   };
 
-  const handleEmojiSelect = (emoji: any) => {
-    setMessage((prev) => prev + emoji.native);
-    textareaRef.current?.focus();
-    setIsEmojiPickerOpen(false);
+  const handleAttachment = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
-  const handleAttachment = () => {
-    toast.info("File attachments will be available soon!");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Get file type
+    const fileType = file.type.split('/')[0]; // 'image', 'video', etc.
+    let messageType: 'image' | 'video' | 'file' = 'file';
+    
+    if (fileType === 'image') {
+      messageType = 'image';
+    } else if (fileType === 'video') {
+      messageType = 'video';
+    }
+    
+    // Create a URL for the file
+    const fileUrl = URL.createObjectURL(file);
+    
+    // Send file message
+    sendMessage(file.name, messageType, fileUrl);
+    toast.success(`${file.name} attached successfully`);
+    
+    // Reset the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   if (!selectedContact) return null;
@@ -67,16 +88,13 @@ export default function ChatInput() {
           />
         </div>
         <div className="flex space-x-2">
-          <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
-            <PopoverTrigger asChild>
-              <Button size="icon" variant="ghost">
-                <Smile className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0 border-none" side="top" align="end">
-              <Picker data={data} onEmojiSelect={handleEmojiSelect} />
-            </PopoverContent>
-          </Popover>
+          <Input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileChange}
+            accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          />
           
           <Button 
             onClick={handleAttachment} 

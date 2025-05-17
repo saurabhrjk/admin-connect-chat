@@ -72,7 +72,7 @@ const MOCK_CONTACTS: Contact[] = [
   }
 ];
 
-// Initialize messages with separate conversations for each user with the admin
+// Initialize messages with separate conversations for each user
 const MOCK_MESSAGES: Record<string, Message[]> = {
   'user-1': [
     {
@@ -127,13 +127,23 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     if (user.isAdmin) {
-      setContacts(MOCK_CONTACTS);
       // Admin sees all users
+      setContacts(MOCK_CONTACTS);
+      
+      // If no contact is selected and there are contacts, select the first one
+      if (!selectedContact && MOCK_CONTACTS.length > 0) {
+        selectContact(MOCK_CONTACTS[0].id);
+      }
     } else {
       // Regular users only see the admin
       setContacts([MOCK_ADMIN_CONTACT]);
+      
+      // If no contact is selected, select the admin
+      if (!selectedContact) {
+        selectContact(MOCK_ADMIN_CONTACT.id);
+      }
     }
-  }, [user]);
+  }, [user, selectedContact]);
 
   // Select contact and mark messages as read
   const selectContact = (contactId: string) => {
@@ -149,8 +159,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       );
       
       // Mark messages as read
-      if (messages[contactId]) {
-        const unreadMessageIds = messages[contactId]
+      if (messages[contactId] || messages[user?.id || '']) {
+        // Get the conversation based on whether the user is admin or regular user
+        const conversationId = user?.isAdmin ? contactId : user?.id || '';
+        const conversation = messages[conversationId] || [];
+        
+        const unreadMessageIds = conversation
           .filter(m => !m.isRead && m.senderId === contactId)
           .map(m => m.id);
         
@@ -180,15 +194,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       fileUrl
     };
     
-    // Get the correct conversation ID based on who's talking to whom
+    // Determine the conversation ID based on user type
     const conversationId = user.isAdmin ? selectedContact.id : user.id;
     
     // Add message to conversation
     setMessages(prev => {
-      return { 
-        ...prev,
-        [conversationId]: [...(prev[conversationId] || []), newMessage]
-      };
+      const updatedMessages = { ...prev };
+      if (!updatedMessages[conversationId]) {
+        updatedMessages[conversationId] = [];
+      }
+      
+      updatedMessages[conversationId] = [...updatedMessages[conversationId], newMessage];
+      return updatedMessages;
     });
     
     // Update contact's last message
@@ -228,11 +245,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Then after a delay, send the message and remove typing indicator
         setTimeout(() => {
           setMessages(prev => {
-            // Store in user's conversation
-            return { 
-              ...prev,
-              [user.id]: [...(prev[user.id] || []), responseMessage]
-            };
+            const updatedMessages = { ...prev };
+            if (!updatedMessages[user.id]) {
+              updatedMessages[user.id] = [];
+            }
+            
+            updatedMessages[user.id] = [...updatedMessages[user.id], responseMessage];
+            return updatedMessages;
           });
           
           // Update contact with new last message and increment unread count

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Message } from '@/hooks/useChat';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, FileText, FileImage, FileVideo } from 'lucide-react';
 import { formatRelative } from 'date-fns';
 
 interface MessageBubbleProps {
@@ -20,7 +20,7 @@ export default function MessageBubble({ message, isUser }: MessageBubbleProps) {
             <img
               src={message.fileUrl}
               alt="Image message"
-              className="max-w-full rounded-lg max-h-[200px]"
+              className="max-w-full rounded-lg max-h-[200px] object-contain"
             />
             <p className="mt-1">{message.content}</p>
           </div>
@@ -28,9 +28,7 @@ export default function MessageBubble({ message, isUser }: MessageBubbleProps) {
       case 'file':
         return (
           <div className="flex items-center p-2 bg-white bg-opacity-20 rounded-md">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <FileText className="h-5 w-5 mr-2" />
             <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
               {message.content}
             </a>
