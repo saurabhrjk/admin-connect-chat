@@ -1,32 +1,39 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
-import { useState } from 'react';
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
+  onForgotPassword: () => void;
 }
 
-export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
+export default function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  
   const { login, isLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
+    setError('');
+    
+    const success = await login(email, password);
+    if (!success) {
+      setError('Invalid email or password');
+    }
   };
 
   return (
     <div className="space-y-4 w-full max-w-sm">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-chat-primary mb-2">ConnectWithMe</h1>
-        <p className="text-muted-foreground">Sign in to your account to continue</p>
+        <p className="text-muted-foreground">Sign in to your account</p>
       </div>
-
+      
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
@@ -39,8 +46,19 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             required
           />
         </div>
+        
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Button 
+              type="button" 
+              variant="link" 
+              className="px-0 font-normal text-xs" 
+              onClick={onForgotPassword}
+            >
+              Forgot password?
+            </Button>
+          </div>
           <Input
             id="password"
             type="password"
@@ -50,11 +68,16 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             required
           />
         </div>
+        
+        {error && (
+          <div className="text-sm font-medium text-destructive">{error}</div>
+        )}
+        
         <Button type="submit" className="w-full bg-chat-primary hover:bg-chat-secondary" disabled={isLoading}>
-          {isLoading ? "Signing in..." : "Sign In"}
+          {isLoading ? "Signing In..." : "Sign In"}
         </Button>
       </form>
-
+      
       <div className="text-center mt-6">
         <p className="text-sm text-muted-foreground">
           Don't have an account?{" "}
@@ -62,11 +85,6 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             Sign up
           </Button>
         </p>
-        <div className="text-xs text-muted-foreground mt-4">
-          <p>Demo credentials:</p>
-          <p>User: user@example.com / password</p>
-          <p>Admin: admin@example.com / password</p>
-        </div>
       </div>
     </div>
   );

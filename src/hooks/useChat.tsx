@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
@@ -40,57 +41,46 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 const MOCK_MESSAGES: Record<string, Message[]> = {};
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, getAllUsers } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [messages, setMessages] = useState<Record<string, Message[]>>(MOCK_MESSAGES);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-  // Keep track of all users for contact management
-  const [allUsers, setAllUsers] = useState<{id: string, name: string, avatar?: string, isAdmin: boolean}[]>([]);
-
-  // Get all users from localStorage
-  useEffect(() => {
-    const storedUser = localStorage.getItem('chat_user');
-    if (storedUser) {
-      const currentUser = JSON.parse(storedUser);
-      
-      // Add current user to allUsers if not already there
-      setAllUsers(prev => {
-        if (!prev.find(u => u.id === currentUser.id)) {
-          return [...prev, currentUser];
-        }
-        return prev;
-      });
-    }
-  }, []);
-
-  // Update allUsers when user logs in
-  useEffect(() => {
-    if (user) {
-      setAllUsers(prev => {
-        if (!prev.find(u => u.id === user.id)) {
-          return [...prev, user];
-        }
-        return prev;
-      });
-    }
-  }, [user]);
-
-  // Set up contacts based on user role
+  // Update contacts when user changes or users are added
   useEffect(() => {
     if (!user) return;
 
-    // Generate contacts based on all known users
-    const userContacts = allUsers
-      .filter(u => u.id !== user.id) // Don't include self as contact
-      .map(u => ({
-        id: u.id,
-        name: u.name,
-        avatar: u.avatar,
-        unreadCount: 0,
-        isOnline: true,
-        isTyping: false
-      }));
+    // Get all users from auth context
+    const allUsers = getAllUsers();
+    
+    let userContacts: Contact[] = [];
+    
+    if (user.isAdmin) {
+      // Admin can see all non-admin users
+      userContacts = allUsers
+        .filter(u => u.id !== user.id) // Don't include self as contact
+        .map(u => ({
+          id: u.id,
+          name: u.name,
+          avatar: u.avatar,
+          unreadCount: 0,
+          isOnline: true,
+          isTyping: false
+        }));
+    } else {
+      // Regular users can only see admin
+      const admin = allUsers.find(u => u.isAdmin);
+      if (admin) {
+        userContacts = [{
+          id: admin.id,
+          name: admin.name,
+          avatar: admin.avatar,
+          unreadCount: 0,
+          isOnline: true,
+          isTyping: false
+        }];
+      }
+    }
 
     setContacts(userContacts);
     
@@ -98,7 +88,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!selectedContact && userContacts.length > 0) {
       selectContact(userContacts[0].id);
     }
-  }, [user, allUsers, selectedContact]);
+  }, [user, getAllUsers]);
 
   // Initialize conversation for new users
   useEffect(() => {
@@ -116,6 +106,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
     });
   }, [user, contacts, messages]);
+
+  // Filter visible messages based on user role
+  const getVisibleMessages = () => {
+    if (!user || !selectedContact) return {};
+
+    // Create a new object to hold filtered messages
+    const filteredMessages: Record<string, Message[]> = {};
+
+    for (const contactId in messages) {
+      if (user.isAdmin) {
+        // Admin can see messages with the selected contact only
+        if (contactId === selectedContact.id) {
+          filteredMessages[contactId] = messages[contactId];
+        }
+      } else {
+        // Regular user can only see messages with admin
+        const allUsers = getAllUsers();
+        const admin = allUsers.find(u => u.isAdmin);
+        
+        if (admin && contactId === admin.id) {
+          filteredMessages[contactId] = messages[contactId].filter(msg => 
+            (msg.senderId === user.id && msg.recipientId === admin.id) || 
+            (msg.senderId === admin.id && msg.recipientId === user.id)
+          );
+        }
+      }
+    }
+
+    return filteredMessages;
+  };
 
   // Select contact and mark messages as read
   const selectContact = (contactId: string) => {
@@ -252,11 +272,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // Get visible messages based on user role
+  const visibleMessages = getVisibleMessages();
+
   return (
     <ChatContext.Provider
       value={{
         contacts,
-        messages,
+        messages: visibleMessages,
         selectedContact,
         selectContact,
         sendMessage,

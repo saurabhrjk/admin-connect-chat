@@ -8,15 +8,19 @@ interface User {
   email: string;
   avatar?: string;
   isAdmin: boolean;
+  securityQuestion?: string;
+  securityAnswer?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string, avatar?: string | null) => Promise<boolean>;
+  register: (name: string, email: string, password: string, securityQuestion: string, securityAnswer: string, avatar?: string | null) => Promise<boolean>;
   logout: () => void;
+  resetPassword: (email: string, securityAnswer: string, newPassword: string) => Promise<boolean>;
   isAuthenticated: boolean;
   isLoading: boolean;
+  getAllUsers: () => User[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +41,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Get all users for chat functionality
+  const getAllUsers = () => {
+    return MOCK_USERS;
+  };
+
   // Login function
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -47,11 +56,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
       
-      if (foundUser && password === 'password') {
-        setUser(foundUser);
-        localStorage.setItem('chat_user', JSON.stringify(foundUser));
-        toast.success('Login successful!');
-        return true;
+      // Check if user exists and password matches stored password
+      if (foundUser) {
+        const storedPassword = localStorage.getItem(`password_${foundUser.id}`);
+        if (storedPassword === password) {
+          setUser(foundUser);
+          localStorage.setItem('chat_user', JSON.stringify(foundUser));
+          toast.success('Login successful!');
+          return true;
+        }
       }
       
       toast.error('Invalid email or password');
@@ -65,7 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Register function
-  const register = async (name: string, email: string, password: string, avatar?: string | null): Promise<boolean> => {
+  const register = async (
+    name: string, 
+    email: string, 
+    password: string, 
+    securityQuestion: string, 
+    securityAnswer: string, 
+    avatar?: string | null
+  ): Promise<boolean> => {
     try {
       setIsLoading(true);
       
@@ -88,11 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name,
         email,
         isAdmin,
-        avatar: avatar || `https://i.pravatar.cc/150?u=${Date.now()}`
+        avatar: avatar || `https://i.pravatar.cc/150?u=${Date.now()}`,
+        securityQuestion,
+        securityAnswer
       };
       
       // Add user to mock database
       MOCK_USERS.push(newUser);
+      
+      // Store password separately for security
+      localStorage.setItem(`password_${newUser.id}`, password);
       
       // Log in the new user
       setUser(newUser);
@@ -102,6 +127,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (error) {
       toast.error('An error occurred during registration');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset password function
+  const resetPassword = async (email: string, securityAnswer: string, newPassword: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Find user
+      const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (!foundUser) {
+        toast.error('User with this email does not exist');
+        return false;
+      }
+      
+      // Verify security answer
+      if (foundUser.securityAnswer?.toLowerCase() !== securityAnswer.toLowerCase()) {
+        toast.error('Incorrect security answer');
+        return false;
+      }
+      
+      // Update password
+      localStorage.setItem(`password_${foundUser.id}`, newPassword);
+      
+      toast.success('Password has been reset successfully');
+      return true;
+    } catch (error) {
+      toast.error('An error occurred during password reset');
       return false;
     } finally {
       setIsLoading(false);
@@ -121,8 +181,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        resetPassword,
         isAuthenticated: !!user,
-        isLoading
+        isLoading,
+        getAllUsers
       }}
     >
       {children}

@@ -6,16 +6,29 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
 }
+
+const securityQuestions = [
+  "What was your first pet's name?",
+  "In what city were you born?",
+  "What is your mother's maiden name?",
+  "What high school did you attend?",
+  "What was the make of your first car?",
+  "What is your favorite movie?",
+  "What is your favorite color?"
+];
 
 export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [securityQuestion, setSecurityQuestion] = useState(securityQuestions[0]);
+  const [securityAnswer, setSecurityAnswer] = useState('');
   const [error, setError] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,8 +56,13 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
       setError('Passwords do not match');
       return;
     }
+
+    if (!securityAnswer.trim()) {
+      setError('Security answer is required');
+      return;
+    }
     
-    const success = await register(name, email, password, avatar);
+    const success = await register(name, email, password, securityQuestion, securityAnswer, avatar);
     if (success) {
       // Registration successful - user is automatically logged in by useAuth hook
     }
@@ -129,6 +147,33 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             placeholder="Confirm your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="securityQuestion">Security Question</Label>
+          <Select value={securityQuestion} onValueChange={setSecurityQuestion}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a security question" />
+            </SelectTrigger>
+            <SelectContent>
+              {securityQuestions.map((question, index) => (
+                <SelectItem key={index} value={question}>
+                  {question}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="securityAnswer">Security Answer</Label>
+          <Input
+            id="securityAnswer"
+            placeholder="Answer to your security question"
+            value={securityAnswer}
+            onChange={(e) => setSecurityAnswer(e.target.value)}
             required
           />
         </div>
