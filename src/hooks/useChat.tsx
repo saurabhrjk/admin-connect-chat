@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
@@ -37,54 +36,8 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Mock initial data
-const MOCK_ADMIN_CONTACT: Contact = {
-  id: 'admin-1',
-  name: 'Admin',
-  avatar: 'https://i.pravatar.cc/150?u=admin',
-  lastMessage: 'How can I help you today?',
-  lastMessageTime: new Date(),
-  unreadCount: 1,
-  isOnline: true,
-  isTyping: false
-};
-
-const MOCK_CONTACTS: Contact[] = [
-  {
-    id: 'user-1',
-    name: 'John Doe',
-    avatar: 'https://i.pravatar.cc/150?u=john',
-    lastMessage: 'Hello there!',
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-    unreadCount: 0,
-    isOnline: true,
-    isTyping: false
-  }
-];
-
-// Initialize messages with separate conversations for each user
-const MOCK_MESSAGES: Record<string, Message[]> = {
-  'user-1': [
-    {
-      id: 'msg-1',
-      senderId: 'admin-1',
-      recipientId: 'user-1',
-      content: 'Hello! How can I help you today?',
-      timestamp: new Date(Date.now() - 1000 * 60 * 10),
-      isRead: true,
-      type: 'text'
-    },
-    {
-      id: 'msg-2',
-      senderId: 'user-1',
-      recipientId: 'admin-1',
-      content: 'I have a question about the service.',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5),
-      isRead: false,
-      type: 'text'
-    }
-  ]
-};
+// Empty initial data
+const MOCK_MESSAGES: Record<string, Message[]> = {};
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -92,28 +45,77 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<Record<string, Message[]>>(MOCK_MESSAGES);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
+  // Keep track of all users for contact management
+  const [allUsers, setAllUsers] = useState<{id: string, name: string, avatar?: string, isAdmin: boolean}[]>([]);
+
+  // Get all users from localStorage
   useEffect(() => {
-    // Set up contacts based on user role
+    const storedUser = localStorage.getItem('chat_user');
+    if (storedUser) {
+      const currentUser = JSON.parse(storedUser);
+      
+      // Add current user to allUsers if not already there
+      setAllUsers(prev => {
+        if (!prev.find(u => u.id === currentUser.id)) {
+          return [...prev, currentUser];
+        }
+        return prev;
+      });
+    }
+  }, []);
+
+  // Update allUsers when user logs in
+  useEffect(() => {
+    if (user) {
+      setAllUsers(prev => {
+        if (!prev.find(u => u.id === user.id)) {
+          return [...prev, user];
+        }
+        return prev;
+      });
+    }
+  }, [user]);
+
+  // Set up contacts based on user role
+  useEffect(() => {
     if (!user) return;
 
-    if (user.isAdmin) {
-      // Admin sees all users
-      setContacts(MOCK_CONTACTS);
-      
-      // If no contact is selected and there are contacts, select the first one
-      if (!selectedContact && MOCK_CONTACTS.length > 0) {
-        selectContact(MOCK_CONTACTS[0].id);
-      }
-    } else {
-      // Regular users only see the admin
-      setContacts([MOCK_ADMIN_CONTACT]);
-      
-      // If no contact is selected, select the admin
-      if (!selectedContact) {
-        selectContact(MOCK_ADMIN_CONTACT.id);
-      }
+    // Generate contacts based on all known users
+    const userContacts = allUsers
+      .filter(u => u.id !== user.id) // Don't include self as contact
+      .map(u => ({
+        id: u.id,
+        name: u.name,
+        avatar: u.avatar,
+        unreadCount: 0,
+        isOnline: true,
+        isTyping: false
+      }));
+
+    setContacts(userContacts);
+    
+    // If no contact is selected and there are contacts, select the first one
+    if (!selectedContact && userContacts.length > 0) {
+      selectContact(userContacts[0].id);
     }
-  }, [user, selectedContact]);
+  }, [user, allUsers, selectedContact]);
+
+  // Initialize conversation for new users
+  useEffect(() => {
+    if (!user) return;
+    
+    // For each contact, ensure there's a conversation entry
+    contacts.forEach(contact => {
+      const conversationId = contact.id;
+      
+      if (!messages[conversationId]) {
+        setMessages(prev => ({
+          ...prev,
+          [conversationId]: []
+        }));
+      }
+    });
+  }, [user, contacts, messages]);
 
   // Select contact and mark messages as read
   const selectContact = (contactId: string) => {
@@ -131,9 +133,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       // Mark messages as read
       if (!user) return;
       
-      // Get the conversation based on whether the user is admin or regular user
-      const conversationId = user.isAdmin ? contactId : user.id;
-      const conversation = messages[conversationId] || [];
+      // Get the conversation 
+      const conversation = messages[contactId] || [];
       
       const unreadMessageIds = conversation
         .filter(m => !m.isRead && m.senderId === contactId)
@@ -164,17 +165,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       fileUrl
     };
     
-    // Determine the conversation ID based on user type
-    const conversationId = user.isAdmin ? selectedContact.id : user.id;
-    
     // Add message to conversation
     setMessages(prev => {
       const updatedMessages = { ...prev };
+      const conversationId = selectedContact.id;
+      
       if (!updatedMessages[conversationId]) {
         updatedMessages[conversationId] = [];
       }
       
-      updatedMessages[conversationId] = [...updatedMessages[conversationId], newMessage];
+      updatedMessages[conversationId] = [
+        ...updatedMessages[conversationId], 
+        newMessage
+      ];
+      
       return updatedMessages;
     });
     
@@ -205,8 +209,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           : c
       )
     );
-    
-    // No auto-responses anymore
   };
 
   // Set typing indicator for a contact

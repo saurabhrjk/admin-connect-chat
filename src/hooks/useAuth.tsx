@@ -21,23 +21,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock data for development purposes
-const MOCK_USERS: User[] = [
-  {
-    id: 'admin-1',
-    name: 'Admin',
-    email: 'admin@example.com',
-    avatar: 'https://i.pravatar.cc/150?u=admin',
-    isAdmin: true
-  },
-  {
-    id: 'user-1',
-    name: 'John Doe',
-    email: 'user@example.com',
-    avatar: 'https://i.pravatar.cc/150?u=john',
-    isAdmin: false
-  }
-];
+// Empty array for users - no demo accounts
+const MOCK_USERS: User[] = [];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -52,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  // Mock login function - in a real app, this would authenticate with a server
+  // Login function
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
@@ -79,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Mock register function
+  // Register function
   const register = async (name: string, email: string, password: string, avatar?: string | null): Promise<boolean> => {
     try {
       setIsLoading(true);
@@ -95,23 +80,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       
-      // Create new user
+      // Create new user - first user is admin, rest are normal users
+      const isAdmin = MOCK_USERS.length === 0;
+      
       const newUser: User = {
         id: `user-${Date.now()}`,
         name,
         email,
-        isAdmin: false,
-        avatar: avatar || `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`
+        isAdmin,
+        avatar: avatar || `https://i.pravatar.cc/150?u=${Date.now()}`
       };
       
-      // In a real app, this would send the user data to a server
+      // Add user to mock database
       MOCK_USERS.push(newUser);
       
       // Log in the new user
       setUser(newUser);
       localStorage.setItem('chat_user', JSON.stringify(newUser));
       
-      toast.success('Registration successful!');
+      toast.success(`Registration successful! ${isAdmin ? 'You are set as an admin.' : ''}`);
       return true;
     } catch (error) {
       toast.error('An error occurred during registration');
