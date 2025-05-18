@@ -37,13 +37,13 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Empty initial data
-const MOCK_MESSAGES: Record<string, Message[]> = {};
+// Store conversations by pairs (user1-user2)
+const CONVERSATIONS: Record<string, Message[]> = {};
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user, getAllUsers } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(MOCK_MESSAGES);
+  const [messages, setMessages] = useState<Record<string, Message[]>>(CONVERSATIONS);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
   // Update contacts when user changes or users are added
@@ -90,13 +90,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, getAllUsers]);
 
+  // Helper function to generate a unique conversation ID between two users
+  const getConversationId = (user1Id: string, user2Id: string) => {
+    // Sort IDs to ensure consistent conversation IDs regardless of who initiates
+    const sortedIds = [user1Id, user2Id].sort();
+    return `${sortedIds[0]}_${sortedIds[1]}`;
+  };
+
   // Initialize conversation for new users
   useEffect(() => {
     if (!user) return;
     
     // For each contact, ensure there's a conversation entry
     contacts.forEach(contact => {
-      const conversationId = contact.id;
+      const conversationId = getConversationId(user.id, contact.id);
       
       if (!messages[conversationId]) {
         setMessages(prev => ({
@@ -106,36 +113,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
     });
   }, [user, contacts, messages]);
-
-  // Filter visible messages based on user role
-  const getVisibleMessages = () => {
-    if (!user || !selectedContact) return {};
-
-    // Create a new object to hold filtered messages
-    const filteredMessages: Record<string, Message[]> = {};
-
-    for (const contactId in messages) {
-      if (user.isAdmin) {
-        // Admin can see messages with the selected contact only
-        if (contactId === selectedContact.id) {
-          filteredMessages[contactId] = messages[contactId];
-        }
-      } else {
-        // Regular user can only see messages with admin
-        const allUsers = getAllUsers();
-        const admin = allUsers.find(u => u.isAdmin);
-        
-        if (admin && contactId === admin.id) {
-          filteredMessages[contactId] = messages[contactId].filter(msg => 
-            (msg.senderId === user.id && msg.recipientId === admin.id) || 
-            (msg.senderId === admin.id && msg.recipientId === user.id)
-          );
-        }
-      }
-    }
-
-    return filteredMessages;
-  };
 
   // Select contact and mark messages as read
   const selectContact = (contactId: string) => {
@@ -153,8 +130,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       // Mark messages as read
       if (!user) return;
       
+      const conversationId = getConversationId(user.id, contactId);
+      
       // Get the conversation 
-      const conversation = messages[contactId] || [];
+      const conversation = messages[conversationId] || [];
       
       const unreadMessageIds = conversation
         .filter(m => !m.isRead && m.senderId === contactId)
@@ -185,10 +164,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       fileUrl
     };
     
-    // Add message to conversation
+    // Add message to conversation using the conversation ID
+    const conversationId = getConversationId(user.id, selectedContact.id);
+    
     setMessages(prev => {
       const updatedMessages = { ...prev };
-      const conversationId = selectedContact.id;
       
       if (!updatedMessages[conversationId]) {
         updatedMessages[conversationId] = [];
@@ -256,14 +236,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Mark messages as read
   const markAsRead = (messageIds: string[]) => {
-    if (!messageIds.length) return;
+    if (!messageIds.length || !user) return;
     
     setMessages(prev => {
       const updatedMessages = { ...prev };
       
       // Update all conversations
-      for (const contactId in updatedMessages) {
-        updatedMessages[contactId] = updatedMessages[contactId].map(msg => 
+      for (const conversationId in updatedMessages) {
+        updatedMessages[conversationId] = updatedMessages[conversationId].map(msg => 
           messageIds.includes(msg.id) ? { ...msg, isRead: true } : msg
         );
       }
@@ -272,7 +252,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  // Get visible messages based on user role
+  // Get messages for the current selected contact
+  const getVisibleMessages = () => {
+    if (!user || !selectedContact) {
+      return {};
+    }
+    
+    const conversationId = getConversationId(user.id, selectedContact.id);
+    const conversation = messages[conversationId] || [];
+    
+    return {
+      [selectedContact.id]: conversation
+    };
+  };
+
+  // Get visible messages for the current user and selected contact
   const visibleMessages = getVisibleMessages();
 
   return (
