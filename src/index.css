@@ -34,6 +34,12 @@
     --ring: 222.2 84% 4.9%;
  
     --radius: 0.5rem;
+
+    --chat-primary: #0084ff;
+    --chat-secondary: #0070d8;
+    --chat-light: #f0f2f5;
+    --chat-online: #31a24c;
+    --chat-offline: #8a8d91;
   }
  
   .dark {
@@ -64,6 +70,12 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    --chat-primary: #0084ff;
+    --chat-secondary: #0070d8;
+    --chat-light: #1A1F2C;
+    --chat-online: #31a24c;
+    --chat-offline: #8a8d91;
   }
 }
  
@@ -74,14 +86,6 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-:root {
-  --chat-primary: #0084ff;
-  --chat-secondary: #0070d8;
-  --chat-light: #f0f2f5;
-  --chat-online: #31a24c;
-  --chat-offline: #8a8d91;
 }
 
 /* Message bubble styling */
@@ -101,6 +105,11 @@
   background-color: #e4e6eb;
   color: #050505;
   border-bottom-left-radius: 0;
+}
+
+.dark .message-bubble-other {
+  background-color: #3a3b3c;
+  color: #e4e6eb;
 }
 
 body {

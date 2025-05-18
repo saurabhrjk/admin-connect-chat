@@ -40,7 +40,7 @@ export default function ChatMessages() {
 
   if (!selectedContact) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 bg-chat-light bg-opacity-30">
+      <div className="flex-1 flex items-center justify-center p-4 bg-chat-light bg-opacity-30 dark:bg-opacity-10">
         <div className="text-center text-muted-foreground">
           <p>Select a conversation to start chatting</p>
         </div>
@@ -50,7 +50,7 @@ export default function ChatMessages() {
 
   if (Object.keys(groupedMessages).length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 bg-chat-light bg-opacity-30">
+      <div className="flex-1 flex items-center justify-center p-4 bg-chat-light bg-opacity-30 dark:bg-opacity-10">
         <div className="text-center text-muted-foreground">
           <p>No messages yet</p>
           <p className="text-sm">Send a message to start the conversation</p>
@@ -60,11 +60,11 @@ export default function ChatMessages() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 bg-chat-light bg-opacity-30">
+    <div className="flex-1 overflow-y-auto p-4 bg-chat-light bg-opacity-30 dark:bg-opacity-10">
       {Object.entries(groupedMessages).map(([date, dateMessages]) => (
         <div key={date} className="mb-6">
           <div className="flex items-center justify-center mb-4">
-            <div className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">
+            <div className="bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs px-2 py-1 rounded-full">
               {new Date(date).toLocaleDateString(undefined, { 
                 weekday: 'long', 
                 month: 'short', 

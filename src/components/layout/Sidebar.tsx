@@ -1,53 +1,60 @@
 
 import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { LogOut, Settings } from 'lucide-react';
-import ContactsList from '../chat/ContactsList';
 import { useAuth } from '@/hooks/useAuth';
+import ContactsList from '../chat/ContactsList';
+import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+  };
+
   return (
-    <div className="w-[280px] border-r bg-background flex flex-col h-full">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-chat-primary">ConnectWithMe</h1>
-          <Button variant="ghost" size="icon">
-            <Settings className="h-5 w-5" />
+    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+      <div className="p-4 border-b dark:border-gray-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-lg dark:text-gray-100">Connect</h2>
+            <p className="text-sm text-muted-foreground">
+              {user?.isAdmin ? 'Admin Account' : 'User Account'}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-5 w-5" />
           </Button>
         </div>
-        
-        <div className="flex items-center space-x-3 mb-2">
-          <Avatar>
-            <AvatarImage src={user?.avatar} />
-            <AvatarFallback className="bg-chat-primary text-white">
-              {user?.name?.charAt(0) || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="font-medium">{user?.name || 'User'}</h2>
-            <div className="flex items-center space-x-1">
-              <span className="h-2 w-2 rounded-full bg-chat-online animate-pulse-dot" />
-              <span className="text-xs text-muted-foreground">Online</span>
+
+        {user && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-chat-light dark:bg-gray-800 flex items-center justify-center">
+              {user.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.name} 
+                  className="w-10 h-10 rounded-full object-cover" 
+                />
+              ) : (
+                <span className="text-lg font-semibold">{user.name.charAt(0)}</span>
+              )}
+            </div>
+            <div>
+              <p className="font-medium dark:text-gray-100">{user.name}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-2">
+          <h3 className="text-sm font-medium text-muted-foreground px-3 py-2">Contacts</h3>
+          <ContactsList />
         </div>
-      </div>
-      
-      <Separator />
-      
-      <div className="flex-1 overflow-auto p-3">
-        <ContactsList />
-      </div>
-      
-      <div className="p-4 border-t">
-        <Button variant="ghost" className="w-full justify-start text-muted-foreground" onClick={logout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
       </div>
     </div>
   );
