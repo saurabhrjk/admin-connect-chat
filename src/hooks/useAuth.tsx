@@ -245,19 +245,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       
-      // Reset password in Supabase Auth
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+      // Find auth user by email
+      const { data: { users }, error: authUserError } = await supabase.auth.admin.listUsers({
+        filter: { email: email }
+      });
       
-      if (resetError) {
-        toast.error(resetError.message);
+      if (authUserError || !users || users.length === 0) {
+        toast.error('Cannot find authentication record');
         return false;
       }
       
-      toast.success('Password reset email has been sent');
+      // Update password directly
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        users[0].id,
+        { password: newPassword }
+      );
+      
+      if (updateError) {
+        toast.error(updateError.message);
+        return false;
+      }
+      
+      toast.success('Password has been reset successfully');
       return true;
     } catch (error) {
       toast.error('An error occurred during password reset');
-      console.error(error);
+      console.error('Password reset error:', error);
       return false;
     } finally {
       setIsLoading(false);

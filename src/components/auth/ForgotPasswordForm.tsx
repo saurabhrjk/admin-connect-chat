@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface ForgotPasswordFormProps {
   onSwitchToLogin: () => void;
@@ -59,12 +60,18 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
       return;
     }
     
-    const success = await resetPassword(email, securityAnswer, newPassword);
-    if (success) {
-      onSwitchToLogin();
+    try {
+      const success = await resetPassword(email, securityAnswer, newPassword);
+      if (success) {
+        toast.success('Password reset successful! Please login with your new password.');
+        onSwitchToLogin();
+      }
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setError('An error occurred while resetting your password');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
