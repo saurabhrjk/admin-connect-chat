@@ -20,23 +20,32 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
   
   const { resetPassword, getAllUsers } = useAuth();
 
-  const handleEmailCheck = () => {
+  const handleEmailCheck = async () => {
     if (!email) {
       setError('Please enter your email');
       return;
     }
     
-    // Find user's security question
-    const users = getAllUsers();
-    const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!foundUser) {
-      setError('No account found with this email');
-      return;
+    setIsLoading(true);
+    try {
+      // Properly await the Promise returned by getAllUsers
+      const users = await getAllUsers();
+      const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (!foundUser) {
+        setError('No account found with this email');
+        setIsLoading(false);
+        return;
+      }
+      
+      setSecurityQuestion(foundUser.securityQuestion || 'What is your favorite color?');
+      setError('');
+    } catch (err) {
+      console.error('Error checking email:', err);
+      setError('An error occurred while checking your email');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setSecurityQuestion(foundUser.securityQuestion || 'What is your favorite color?');
-    setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,7 +70,7 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
   return (
     <div className="space-y-4 w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-chat-primary mb-2">ConnectWithMe</h1>
+        <h1 className="text-3xl font-bold text-chat-primary mb-2">ConnectWithSaurabh</h1>
         <p className="text-muted-foreground">Reset Your Password</p>
       </div>
 
@@ -79,8 +88,8 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
               required
             />
             {!securityQuestion && (
-              <Button type="button" onClick={handleEmailCheck} className="whitespace-nowrap">
-                Find Account
+              <Button type="button" onClick={handleEmailCheck} className="whitespace-nowrap" disabled={isLoading}>
+                {isLoading ? "Checking..." : "Find Account"}
               </Button>
             )}
           </div>
