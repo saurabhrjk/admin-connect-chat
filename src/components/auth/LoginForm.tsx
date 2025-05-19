@@ -30,7 +30,7 @@ export default function LoginForm({ onSwitchToRegister, onForgotPassword }: Logi
   return (
     <div className="space-y-4 w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-chat-primary mb-2">ConnectWithMe</h1>
+        <h1 className="text-3xl font-bold text-chat-primary mb-2">ConnectWithSaurabh</h1>
         <p className="text-muted-foreground">Sign in to your account</p>
       </div>
       

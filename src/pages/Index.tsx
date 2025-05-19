@@ -5,7 +5,7 @@ import { ChatProvider } from '@/hooks/useChat';
 import AuthScreen from '@/components/auth/AuthScreen';
 import ChatScreen from '@/components/chat/ChatScreen';
 
-const ConnectWithMe = () => {
+const ConnectWithSaurabh = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -26,7 +26,7 @@ const Index = () => {
   return (
     <AuthProvider>
       <ChatProvider>
-        <ConnectWithMe />
+        <ConnectWithSaurabh />
       </ChatProvider>
     </AuthProvider>
   );

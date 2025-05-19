@@ -1,6 +1,7 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
@@ -20,30 +21,113 @@ interface AuthContextType {
   resetPassword: (email: string, securityAnswer: string, newPassword: string) => Promise<boolean>;
   isAuthenticated: boolean;
   isLoading: boolean;
-  getAllUsers: () => User[];
+  getAllUsers: () => Promise<User[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Empty array for users - no demo accounts
-const MOCK_USERS: User[] = [];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('chat_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Check for active session
+    const checkSession = async () => {
+      setIsLoading(true);
+      
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking session:', error.message);
+          return;
+        }
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        }
+      } catch (error) {
+        console.error('Unexpected error checking session:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkSession();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // Fetch user profile from custom table
+  const fetchUserProfile = async (authId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', authId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user profile:', error.message);
+        return;
+      }
+      
+      if (data) {
+        const userProfile: User = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          avatar: data.avatar || undefined,
+          isAdmin: data.is_admin,
+          securityQuestion: data.security_question || undefined,
+          securityAnswer: data.security_answer || undefined
+        };
+        
+        setUser(userProfile);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching user profile:', error);
+    }
+  };
+
   // Get all users for chat functionality
-  const getAllUsers = () => {
-    return MOCK_USERS;
+  const getAllUsers = async (): Promise<User[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching users:', error.message);
+        return [];
+      }
+      
+      return data.map(item => ({
+        id: item.id,
+        name: item.name,
+        email: item.email,
+        avatar: item.avatar || undefined,
+        isAdmin: item.is_admin,
+        securityQuestion: item.security_question || undefined,
+        securityAnswer: item.security_answer || undefined
+      }));
+    } catch (error) {
+      console.error('Unexpected error fetching users:', error);
+      return [];
+    }
   };
 
   // Login function
@@ -51,26 +135,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      // Check if user exists and password matches stored password
-      if (foundUser) {
-        const storedPassword = localStorage.getItem(`password_${foundUser.id}`);
-        if (storedPassword === password) {
-          setUser(foundUser);
-          localStorage.setItem('chat_user', JSON.stringify(foundUser));
-          toast.success('Login successful!');
-          return true;
-        }
+      if (error) {
+        toast.error(error.message);
+        return false;
       }
       
-      toast.error('Invalid email or password');
+      if (data.user) {
+        toast.success('Login successful!');
+        return true;
+      }
+      
       return false;
     } catch (error) {
       toast.error('An error occurred during login');
+      console.error(error);
       return false;
     } finally {
       setIsLoading(false);
@@ -89,44 +172,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Register user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password
+      });
       
-      // Check if user with this email already exists
-      const existingUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (existingUser) {
-        toast.error('User with this email already exists');
+      if (authError) {
+        toast.error(authError.message);
         return false;
       }
       
-      // Create new user - first user is admin, rest are normal users
-      const isAdmin = MOCK_USERS.length === 0;
+      if (!authData.user) {
+        toast.error('Registration failed');
+        return false;
+      }
       
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        name,
-        email,
-        isAdmin,
-        avatar: avatar || `https://i.pravatar.cc/150?u=${Date.now()}`,
-        securityQuestion,
-        securityAnswer
-      };
+      // Insert user into our custom users table
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            auth_id: authData.user.id,
+            name,
+            email,
+            avatar: avatar || null,
+            security_question: securityQuestion,
+            security_answer: securityAnswer
+          }
+        ]);
       
-      // Add user to mock database
-      MOCK_USERS.push(newUser);
+      if (profileError) {
+        console.error('Error creating user profile:', profileError.message);
+        toast.error('Failed to create user profile');
+        
+        // Clean up auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        return false;
+      }
       
-      // Store password separately for security
-      localStorage.setItem(`password_${newUser.id}`, password);
-      
-      // Log in the new user
-      setUser(newUser);
-      localStorage.setItem('chat_user', JSON.stringify(newUser));
-      
-      toast.success(`Registration successful! ${isAdmin ? 'You are set as an admin.' : ''}`);
+      toast.success('Registration successful!');
       return true;
     } catch (error) {
       toast.error('An error occurred during registration');
+      console.error(error);
       return false;
     } finally {
       setIsLoading(false);
@@ -138,40 +227,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Find user by email
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
       
-      // Find user
-      const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (!foundUser) {
+      if (userError || !userData) {
         toast.error('User with this email does not exist');
         return false;
       }
       
       // Verify security answer
-      if (foundUser.securityAnswer?.toLowerCase() !== securityAnswer.toLowerCase()) {
+      if (userData.security_answer?.toLowerCase() !== securityAnswer.toLowerCase()) {
         toast.error('Incorrect security answer');
         return false;
       }
       
-      // Update password
-      localStorage.setItem(`password_${foundUser.id}`, newPassword);
+      // Reset password in Supabase Auth
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
       
-      toast.success('Password has been reset successfully');
+      if (resetError) {
+        toast.error(resetError.message);
+        return false;
+      }
+      
+      toast.success('Password reset email has been sent');
       return true;
     } catch (error) {
       toast.error('An error occurred during password reset');
+      console.error(error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('chat_user');
-    toast.success('Logged out successfully');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      toast.success('Logged out successfully');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      toast.error('Failed to log out');
+    }
   };
 
   return (

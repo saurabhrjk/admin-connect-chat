@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Contact {
   id: string;
@@ -37,82 +38,202 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Store conversations by pairs (user1-user2)
-const CONVERSATIONS: Record<string, Message[]> = {};
-
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user, getAllUsers } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(CONVERSATIONS);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-  // Update contacts when user changes or users are added
+  // Update contacts when user changes
   useEffect(() => {
-    if (!user) return;
-
-    // Get all users from auth context
-    const allUsers = getAllUsers();
-    
-    let userContacts: Contact[] = [];
-    
-    if (user.isAdmin) {
-      // Admin can see all non-admin users
-      userContacts = allUsers
-        .filter(u => u.id !== user.id) // Don't include self as contact
-        .map(u => ({
-          id: u.id,
-          name: u.name,
-          avatar: u.avatar,
-          unreadCount: 0,
-          isOnline: true,
-          isTyping: false
-        }));
-    } else {
-      // Regular users can only see admin
-      const admin = allUsers.find(u => u.isAdmin);
-      if (admin) {
-        userContacts = [{
-          id: admin.id,
-          name: admin.name,
-          avatar: admin.avatar,
-          unreadCount: 0,
-          isOnline: true,
-          isTyping: false
-        }];
+    const fetchContacts = async () => {
+      if (!user) return;
+      
+      try {
+        // Get all users from database
+        const allUsers = await getAllUsers();
+        
+        let userContacts: Contact[] = [];
+        
+        if (user.isAdmin) {
+          // Admin can see all non-admin users
+          userContacts = allUsers
+            .filter(u => u.id !== user.id) // Don't include self as contact
+            .map(u => ({
+              id: u.id,
+              name: u.name,
+              avatar: u.avatar,
+              unreadCount: 0,
+              isOnline: true,
+              isTyping: false
+            }));
+        } else {
+          // Regular users can only see admin
+          const admin = allUsers.find(u => u.isAdmin);
+          if (admin) {
+            userContacts = [{
+              id: admin.id,
+              name: admin.name,
+              avatar: admin.avatar,
+              unreadCount: 0,
+              isOnline: true,
+              isTyping: false
+            }];
+          }
+        }
+        
+        setContacts(userContacts);
+        
+        // If no contact is selected and there are contacts, select the first one
+        if (!selectedContact && userContacts.length > 0) {
+          selectContact(userContacts[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching contacts:', error);
       }
-    }
-
-    setContacts(userContacts);
+    };
     
-    // If no contact is selected and there are contacts, select the first one
-    if (!selectedContact && userContacts.length > 0) {
-      selectContact(userContacts[0].id);
-    }
+    fetchContacts();
   }, [user, getAllUsers]);
 
-  // Helper function to generate a unique conversation ID between two users
-  const getConversationId = (user1Id: string, user2Id: string) => {
-    // Sort IDs to ensure consistent conversation IDs regardless of who initiates
-    const sortedIds = [user1Id, user2Id].sort();
-    return `${sortedIds[0]}_${sortedIds[1]}`;
-  };
-
-  // Initialize conversation for new users
+  // Fetch messages for selected contact
   useEffect(() => {
+    const fetchMessages = async () => {
+      if (!user || !selectedContact) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+          .order('created_at', { ascending: true });
+        
+        if (error) {
+          console.error('Error fetching messages:', error);
+          return;
+        }
+        
+        const formattedMessages: Record<string, Message[]> = {};
+        
+        if (data) {
+          // Process messages and group by contact
+          data.forEach(msg => {
+            const contactId = msg.sender_id === user.id ? msg.recipient_id : msg.sender_id;
+            
+            if (!formattedMessages[contactId]) {
+              formattedMessages[contactId] = [];
+            }
+            
+            formattedMessages[contactId].push({
+              id: msg.id,
+              senderId: msg.sender_id,
+              recipientId: msg.recipient_id,
+              content: msg.content,
+              timestamp: new Date(msg.created_at),
+              isRead: msg.is_read,
+              type: msg.type as 'text' | 'file' | 'image' | 'video',
+              fileUrl: msg.file_url || undefined
+            });
+          });
+        }
+        
+        setMessages(formattedMessages);
+        
+        // Update contact unread count
+        updateContactsWithMessageInfo(formattedMessages);
+      } catch (error) {
+        console.error('Error in fetchMessages:', error);
+      }
+    };
+    
+    fetchMessages();
+    
+    // Set up real-time listener for new messages
+    const channel = supabase
+      .channel('public:messages')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'messages'
+      }, payload => {
+        if (payload.new) {
+          handleNewMessage(payload.new);
+        }
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedContact]);
+
+  const handleNewMessage = (newMsg: any) => {
     if (!user) return;
     
-    // For each contact, ensure there's a conversation entry
-    contacts.forEach(contact => {
-      const conversationId = getConversationId(user.id, contact.id);
+    const isForCurrentUser = newMsg.sender_id === user.id || newMsg.recipient_id === user.id;
+    
+    if (isForCurrentUser) {
+      const contactId = newMsg.sender_id === user.id ? newMsg.recipient_id : newMsg.sender_id;
+      const newMessage: Message = {
+        id: newMsg.id,
+        senderId: newMsg.sender_id,
+        recipientId: newMsg.recipient_id,
+        content: newMsg.content,
+        timestamp: new Date(newMsg.created_at),
+        isRead: newMsg.is_read,
+        type: newMsg.type as 'text' | 'file' | 'image' | 'video',
+        fileUrl: newMsg.file_url || undefined
+      };
       
-      if (!messages[conversationId]) {
-        setMessages(prev => ({
-          ...prev,
-          [conversationId]: []
-        }));
-      }
-    });
-  }, [user, contacts, messages]);
+      setMessages(prev => {
+        const updated = { ...prev };
+        
+        if (!updated[contactId]) {
+          updated[contactId] = [];
+        }
+        
+        // Check if message already exists to avoid duplicates
+        const messageExists = updated[contactId].some(msg => msg.id === newMsg.id);
+        
+        if (!messageExists) {
+          updated[contactId] = [...updated[contactId], newMessage];
+        }
+        
+        return updated;
+      });
+      
+      // Update contacts with new message info
+      setContacts(prev => 
+        prev.map(contact => 
+          contact.id === contactId
+            ? { 
+                ...contact, 
+                lastMessage: newMsg.content.length > 30 ? newMsg.content.substring(0, 30) + '...' : newMsg.content,
+                lastMessageTime: new Date(newMsg.created_at),
+                unreadCount: contact.unreadCount + (newMsg.sender_id !== user.id && !newMsg.is_read ? 1 : 0)
+              }
+            : contact
+        )
+      );
+    }
+  };
+
+  const updateContactsWithMessageInfo = (messagesMap: Record<string, Message[]>) => {
+    setContacts(prev => 
+      prev.map(contact => {
+        const contactMessages = messagesMap[contact.id] || [];
+        const lastMsg = contactMessages[contactMessages.length - 1];
+        const unreadCount = contactMessages.filter(msg => msg.senderId === contact.id && !msg.isRead).length;
+        
+        return {
+          ...contact,
+          lastMessage: lastMsg?.content,
+          lastMessageTime: lastMsg?.timestamp,
+          unreadCount
+        };
+      })
+    );
+  };
 
   // Select contact and mark messages as read
   const selectContact = (contactId: string) => {
@@ -130,12 +251,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       // Mark messages as read
       if (!user) return;
       
-      const conversationId = getConversationId(user.id, contactId);
+      const conversationMessages = messages[contactId] || [];
       
-      // Get the conversation 
-      const conversation = messages[conversationId] || [];
-      
-      const unreadMessageIds = conversation
+      const unreadMessageIds = conversationMessages
         .filter(m => !m.isRead && m.senderId === contactId)
         .map(m => m.id);
       
@@ -146,69 +264,68 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Send a new message
-  const sendMessage = (
+  const sendMessage = async (
     content: string, 
     type: 'text' | 'file' | 'image' | 'video' = 'text', 
     fileUrl?: string
   ) => {
     if (!user || !selectedContact || (!content.trim() && !fileUrl)) return;
     
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: user.id,
-      recipientId: selectedContact.id,
-      content: content.trim() || (type !== 'text' ? 'Attachment' : ''),
-      timestamp: new Date(),
-      isRead: false,
-      type,
-      fileUrl
-    };
-    
-    // Add message to conversation using the conversation ID
-    const conversationId = getConversationId(user.id, selectedContact.id);
-    
-    setMessages(prev => {
-      const updatedMessages = { ...prev };
+    try {
+      const newMessage = {
+        sender_id: user.id,
+        recipient_id: selectedContact.id,
+        content: content.trim() || (type !== 'text' ? 'Attachment' : ''),
+        type,
+        file_url: fileUrl || null,
+        is_read: false
+      };
       
-      if (!updatedMessages[conversationId]) {
-        updatedMessages[conversationId] = [];
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([newMessage])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error sending message:', error);
+        toast.error('Failed to send message');
+        return;
       }
       
-      updatedMessages[conversationId] = [
-        ...updatedMessages[conversationId], 
-        newMessage
-      ];
+      // Update local state handled by real-time subscription
       
-      return updatedMessages;
-    });
-    
-    // Update contact's last message
-    let lastMessageText = content;
-    if (!content && type !== 'text') {
-      switch (type) {
-        case 'image': 
-          lastMessageText = 'Image sent';
-          break;
-        case 'file':
-          lastMessageText = 'File sent';
-          break;
-        case 'video':
-          lastMessageText = 'Video sent';
-          break;
+      // Update contact's last message
+      let lastMessageText = content;
+      if (!content && type !== 'text') {
+        switch (type) {
+          case 'image': 
+            lastMessageText = 'Image sent';
+            break;
+          case 'file':
+            lastMessageText = 'File sent';
+            break;
+          case 'video':
+            lastMessageText = 'Video sent';
+            break;
+        }
       }
+      
+      setContacts(prevContacts => 
+        prevContacts.map(c => 
+          c.id === selectedContact.id 
+            ? { 
+                ...c, 
+                lastMessage: lastMessageText.length > 30 ? lastMessageText.substring(0, 30) + '...' : lastMessageText,
+                lastMessageTime: new Date()
+              } 
+            : c
+        )
+      );
+    } catch (error) {
+      console.error('Error in sendMessage:', error);
+      toast.error('Failed to send message');
     }
-    
-    setContacts(prevContacts => 
-      prevContacts.map(c => 
-        c.id === selectedContact.id 
-          ? { 
-              ...c, 
-              lastMessage: lastMessageText.length > 30 ? lastMessageText.substring(0, 30) + '...' : lastMessageText,
-              lastMessageTime: new Date()
-            } 
-          : c
-      )
-    );
   };
 
   // Set typing indicator for a contact
@@ -235,21 +352,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Mark messages as read
-  const markAsRead = (messageIds: string[]) => {
+  const markAsRead = async (messageIds: string[]) => {
     if (!messageIds.length || !user) return;
     
-    setMessages(prev => {
-      const updatedMessages = { ...prev };
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .in('id', messageIds);
       
-      // Update all conversations
-      for (const conversationId in updatedMessages) {
-        updatedMessages[conversationId] = updatedMessages[conversationId].map(msg => 
-          messageIds.includes(msg.id) ? { ...msg, isRead: true } : msg
-        );
+      if (error) {
+        console.error('Error marking messages as read:', error);
+        return;
       }
       
-      return updatedMessages;
-    });
+      // Update local state
+      setMessages(prev => {
+        const updated = { ...prev };
+        
+        // Update all conversations
+        for (const contactId in updated) {
+          updated[contactId] = updated[contactId].map(msg => 
+            messageIds.includes(msg.id) ? { ...msg, isRead: true } : msg
+          );
+        }
+        
+        return updated;
+      });
+    } catch (error) {
+      console.error('Error in markAsRead:', error);
+    }
   };
 
   // Get messages for the current selected contact
@@ -258,8 +390,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       return {};
     }
     
-    const conversationId = getConversationId(user.id, selectedContact.id);
-    const conversation = messages[conversationId] || [];
+    const conversation = messages[selectedContact.id] || [];
     
     return {
       [selectedContact.id]: conversation

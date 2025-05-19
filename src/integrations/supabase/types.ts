@@ -9,13 +9,99 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          file_url: string | null
+          id: string
+          is_read: boolean
+          recipient_id: string
+          sender_id: string
+          type: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          is_read?: boolean
+          recipient_id: string
+          sender_id: string
+          type?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          is_read?: boolean
+          recipient_id?: string
+          sender_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          auth_id: string
+          avatar: string | null
+          created_at: string
+          email: string
+          id: string
+          is_admin: boolean
+          name: string
+          security_answer: string | null
+          security_question: string | null
+        }
+        Insert: {
+          auth_id: string
+          avatar?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          is_admin?: boolean
+          name: string
+          security_answer?: string | null
+          security_question?: string | null
+        }
+        Update: {
+          auth_id?: string
+          avatar?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          is_admin?: boolean
+          name?: string
+          security_answer?: string | null
+          security_question?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_exists: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
