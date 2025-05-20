@@ -141,7 +141,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (error) {
-        toast.error(error.message);
+        // Check if the error is specifically about email not being confirmed
+        if (error.message.includes('Email not confirmed')) {
+          // Send another confirmation email
+          const { error: resendError } = await supabase.auth.resend({
+            type: 'signup',
+            email,
+          });
+          
+          if (resendError) {
+            toast.error(`Verification failed: ${resendError.message}`);
+          } else {
+            toast.info('Your email is not verified. A new verification email has been sent.');
+          }
+        } else {
+          toast.error(error.message);
+        }
         return false;
       }
       
@@ -175,7 +190,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Register user with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: {
+          // Set email confirmation to false to bypass email verification (for development only)
+          emailRedirectTo: window.location.origin
+        }
       });
       
       if (authError) {
@@ -189,7 +208,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Now that we have updated the RLS policy, we can insert directly into the users table
-      // without needing admin privileges
       const { error: profileError } = await supabase.from('users').insert([
         {
           auth_id: authData.user.id,
@@ -204,13 +222,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileError) {
         console.error('Error creating user profile:', profileError.message);
         toast.error('Failed to create user profile: ' + profileError.message);
-        
-        // We can't delete the auth user without admin privileges from the client
-        // In a production app, you would handle this with a database trigger or server function
         return false;
       }
       
-      toast.success('Registration successful!');
+      // Show appropriate message based on email confirmation status
+      if (authData.session) {
+        // User is automatically signed in (email confirmation disabled)
+        toast.success('Registration successful!');
+      } else {
+        // Email confirmation required
+        toast.success('Registration successful! Please check your email to confirm your account.');
+      }
+      
       return true;
     } catch (error) {
       let errorMessage = 'An error occurred during registration';

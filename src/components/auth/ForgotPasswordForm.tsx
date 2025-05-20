@@ -65,7 +65,7 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
       const success = await resetPassword(email, securityAnswer, newPassword);
       if (success) {
         setResetSuccess(true);
-        toast.success('Password reset email has been sent. Please check your inbox.');
+        toast.success('Password has been reset successfully. You can now log in with your new password.');
       }
     } catch (err) {
       console.error('Error resetting password:', err);
