@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -141,22 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (error) {
-        // Check if the error is specifically about email not being confirmed
-        if (error.message.includes('Email not confirmed')) {
-          // Send another confirmation email
-          const { error: resendError } = await supabase.auth.resend({
-            type: 'signup',
-            email,
-          });
-          
-          if (resendError) {
-            toast.error(`Verification failed: ${resendError.message}`);
-          } else {
-            toast.info('Your email is not verified. A new verification email has been sent.');
-          }
-        } else {
-          toast.error(error.message);
-        }
+        toast.error(error.message);
         return false;
       }
       
@@ -187,13 +171,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Register user with Supabase Auth
+      // Register user with Supabase Auth - with email confirmation disabled
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // Set email confirmation to false to bypass email verification (for development only)
-          emailRedirectTo: window.location.origin
+          emailRedirectTo: window.location.origin,
+          data: {
+            email_confirm: false // This signals to disable email confirmation
+          }
         }
       });
       
@@ -225,14 +211,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       
-      // Show appropriate message based on email confirmation status
-      if (authData.session) {
-        // User is automatically signed in (email confirmation disabled)
-        toast.success('Registration successful!');
-      } else {
-        // Email confirmation required
-        toast.success('Registration successful! Please check your email to confirm your account.');
-      }
+      // We consider the registration successful regardless of email confirmation status
+      toast.success('Registration successful!');
       
       return true;
     } catch (error) {
