@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -245,19 +244,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       
-      // Find auth user by email
-      const { data: { users }, error: authUserError } = await supabase.auth.admin.listUsers({
-        filter: { email: email }
-      });
+      // Get auth ID from user data
+      const authId = userData.auth_id;
       
-      if (authUserError || !users || users.length === 0) {
+      if (!authId) {
         toast.error('Cannot find authentication record');
         return false;
       }
       
-      // Update password directly
+      // Update password directly using the auth_id
       const { error: updateError } = await supabase.auth.admin.updateUserById(
-        users[0].id,
+        authId,
         { password: newPassword }
       );
       
