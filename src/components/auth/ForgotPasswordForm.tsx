@@ -18,6 +18,7 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [securityQuestion, setSecurityQuestion] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState(false);
   
   const { resetPassword, getAllUsers } = useAuth();
 
@@ -63,8 +64,8 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
     try {
       const success = await resetPassword(email, securityAnswer, newPassword);
       if (success) {
-        toast.success('Password reset successful! Please login with your new password.');
-        onSwitchToLogin();
+        setResetSuccess(true);
+        toast.success('Password reset email has been sent. Please check your inbox.');
       }
     } catch (err) {
       console.error('Error resetting password:', err);
@@ -81,84 +82,101 @@ export default function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFo
         <p className="text-muted-foreground">Reset Your Password</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <div className="flex space-x-2">
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={!!securityQuestion}
-              required
-            />
-            {!securityQuestion && (
-              <Button type="button" onClick={handleEmailCheck} className="whitespace-nowrap" disabled={isLoading}>
-                {isLoading ? "Checking..." : "Find Account"}
-              </Button>
-            )}
+      {resetSuccess ? (
+        <div className="space-y-4">
+          <div className="bg-green-50 p-4 rounded-md border border-green-200">
+            <p className="text-green-800">
+              A password reset link has been sent to your email address. Please check your inbox and follow the instructions to reset your password.
+            </p>
           </div>
-        </div>
-        
-        {securityQuestion && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="securityQuestion">Security Question</Label>
-              <div className="p-3 border rounded-md bg-muted">
-                {securityQuestion}
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="securityAnswer">Security Answer</Label>
-              <Input
-                id="securityAnswer"
-                placeholder="Enter your answer"
-                value={securityAnswer}
-                onChange={(e) => setSecurityAnswer(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                placeholder="Enter new password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-          </>
-        )}
-        
-        {error && (
-          <div className="text-sm font-medium text-destructive">{error}</div>
-        )}
-        
-        {securityQuestion && (
-          <Button type="submit" className="w-full bg-chat-primary hover:bg-chat-secondary" disabled={isLoading}>
-            {isLoading ? "Resetting Password..." : "Reset Password"}
+          <Button 
+            type="button" 
+            className="w-full bg-chat-primary hover:bg-chat-secondary" 
+            onClick={onSwitchToLogin}
+          >
+            Return to Login
           </Button>
-        )}
-      </form>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <div className="flex space-x-2">
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={!!securityQuestion}
+                required
+              />
+              {!securityQuestion && (
+                <Button type="button" onClick={handleEmailCheck} className="whitespace-nowrap" disabled={isLoading}>
+                  {isLoading ? "Checking..." : "Find Account"}
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          {securityQuestion && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="securityQuestion">Security Question</Label>
+                <div className="p-3 border rounded-md bg-muted">
+                  {securityQuestion}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="securityAnswer">Security Answer</Label>
+                <Input
+                  id="securityAnswer"
+                  placeholder="Enter your answer"
+                  value={securityAnswer}
+                  onChange={(e) => setSecurityAnswer(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm your new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
+          
+          {error && (
+            <div className="text-sm font-medium text-destructive">{error}</div>
+          )}
+          
+          {securityQuestion && (
+            <Button type="submit" className="w-full bg-chat-primary hover:bg-chat-secondary" disabled={isLoading}>
+              {isLoading ? "Resetting Password..." : "Reset Password"}
+            </Button>
+          )}
+        </form>
+      )}
 
       <div className="text-center mt-6">
         <p className="text-sm text-muted-foreground">

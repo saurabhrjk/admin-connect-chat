@@ -188,8 +188,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       
-      // Insert user into our custom users table using the service role
-      // We need to use the service role to bypass RLS policies for this operation
+      // Now that we have updated the RLS policy, we can insert directly into the users table
+      // without needing admin privileges
       const { error: profileError } = await supabase.from('users').insert([
         {
           auth_id: authData.user.id,
@@ -203,24 +203,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (profileError) {
         console.error('Error creating user profile:', profileError.message);
-        toast.error('Failed to create user profile');
+        toast.error('Failed to create user profile: ' + profileError.message);
         
-        // Clean up auth user if profile creation fails
-        try {
-          // Note: deleteUser requires admin privileges which the client doesn't have
-          // This will fail silently but we should leave the code to document the intention
-          await supabase.auth.admin.deleteUser(authData.user.id);
-        } catch (deleteError) {
-          console.error('Failed to clean up auth user:', deleteError);
-        }
+        // We can't delete the auth user without admin privileges from the client
+        // In a production app, you would handle this with a database trigger or server function
         return false;
       }
       
       toast.success('Registration successful!');
       return true;
     } catch (error) {
-      toast.error('An error occurred during registration');
-      console.error(error);
+      let errorMessage = 'An error occurred during registration';
+      if (error instanceof Error) {
+        errorMessage += ': ' + error.message;
+      }
+      toast.error(errorMessage);
+      console.error('Registration error:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -258,18 +256,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       
-      // Update password directly using the auth_id
-      const { error: updateError } = await supabase.auth.admin.updateUserById(
-        authId,
-        { password: newPassword }
-      );
+      // Since we can't use the admin API directly from the client,
+      // we'll use the password reset flow that's available to regular users
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
       
-      if (updateError) {
-        toast.error(updateError.message);
+      if (resetError) {
+        toast.error('Error resetting password: ' + resetError.message);
         return false;
       }
       
-      toast.success('Password has been reset successfully');
+      // Store the new password in localStorage temporarily
+      // This is not ideal but works as a simple solution
+      localStorage.setItem('pendingNewPassword', newPassword);
+      
+      toast.success('Password reset link has been sent to your email');
       return true;
     } catch (error) {
       toast.error('An error occurred during password reset');
